@@ -1,9 +1,10 @@
-/* Haptic Pattern Designer Web Server
-   - 74HC595 Shift Register with manual shifting
-   - ULN2803 Darlington Array driven motors
-   - binary websocket state broadcasts
-   - pattern playback engine (non-blocking)
-   - web UI
+/*
+    Haptic Pattern Designer Web Server
+    74HC595 Shift Register with manual shifting
+    ULN2803 Darlington Array driven motors
+    binary websocket state broadcasts
+    pattern playback engine (non-blocking)
+    web UI
 */
 
 #include <WiFi.h>
@@ -14,18 +15,18 @@
 #define CLOCK_PIN 4
 #define LATCH_PIN 3
 
-const char* ssid = "YOUR_SSID_HERE";
-const char* password = "YOUR_PASSWORD_HERE";
+const char *ssid = "YOUR_SSID_HERE";
+const char *password = "YOUR_PASSWORD_HERE";
 
 WebServer server(80);
 WebSocketsServer ws(81);
 
-uint8_t state = 0;                
+uint8_t state = 0;
 unsigned long wifiRetry = 0;
 bool wifiConnected = false;
 
 /* ---------- Pattern playback ---------- */
-const int MAX_STEPS = 64; 
+const int MAX_STEPS = 64;
 uint8_t patMasks[MAX_STEPS];
 uint16_t patDur[MAX_STEPS];
 int patLen = 0;
@@ -39,125 +40,155 @@ unsigned long motorTimer[8] = {0};
 uint16_t tapDuration = 100;
 
 /* ---------- Helpers ---------- */
-uint8_t rev(uint8_t b){
-  b=(b&0xF0)>>4|(b&0x0F)<<4;
-  b=(b&0xCC)>>2|(b&0x33)<<2;
-  b=(b&0xAA)>>1|(b&0x55)<<1;
-  return b;
+uint8_t rev(uint8_t b)
+{
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+    return b;
 }
 
-void shift(uint8_t d){
-  d = rev(d);
-  digitalWrite(LATCH_PIN, LOW);
-  for(int i=7; i>=0; i--){
-    digitalWrite(CLOCK_PIN, LOW);
-    digitalWrite(DATA_PIN, (d>>i)&1);
-    digitalWrite(CLOCK_PIN, HIGH);
-  }
-  digitalWrite(LATCH_PIN, HIGH);
+void shift(uint8_t d)
+{
+    d = rev(d);
+    digitalWrite(LATCH_PIN, LOW);
+    for (int i = 7; i >= 0; i--)
+    {
+        digitalWrite(CLOCK_PIN, LOW);
+        digitalWrite(DATA_PIN, (d >> i) & 1);
+        digitalWrite(CLOCK_PIN, HIGH);
+    }
+    digitalWrite(LATCH_PIN, HIGH);
 }
 
 /* ---------- Motor actions ---------- */
-void setState(uint8_t mask){
-  state = mask;
-  shift(state);
-  ws.broadcastBIN(&state, 1);
+void setState(uint8_t mask)
+{
+    state = mask;
+    shift(state);
+    ws.broadcastBIN(&state, 1);
 }
 
-void motorTap(uint8_t m){
-  state |= (1<<m);
-  motorTimer[m] = millis();
-  shift(state);
-  ws.broadcastBIN(&state, 1);
+void motorTap(uint8_t m)
+{
+    state |= (1 << m);
+    motorTimer[m] = millis();
+    shift(state);
+    ws.broadcastBIN(&state, 1);
 }
 
-void allOff(){
-  state = 0;
-  shift(state);
-  ws.broadcastBIN(&state, 1);
+void allOff()
+{
+    state = 0;
+    shift(state);
+    ws.broadcastBIN(&state, 1);
 }
 
 /* ---------- Pattern engine (non-blocking) ---------- */
-void startPattern(int len){
-  if(len <= 0) return;
-  patLen = (len > MAX_STEPS) ? MAX_STEPS : len;
-  playing = true;
-  playIndex = 0;
-  
-  memset(motorTimer, 0, sizeof(motorTimer));
-  
-  stepStart = millis();
-  setState(patMasks[playIndex]);
-}
+void startPattern(int len)
+{
+    if (len <= 0)
+        return;
+    patLen = (len > MAX_STEPS) ? MAX_STEPS : len;
+    playing = true;
+    playIndex = 0;
 
-void stopPattern(){
-  playing = false;
-  patLen = 0;
-  playIndex = 0;
-  allOff();
-}
+    memset(motorTimer, 0, sizeof(motorTimer));
 
-void updatePattern(){
-  if(!playing || patLen == 0) return;
-  
-  unsigned long now = millis();
-  uint16_t dur = patDur[playIndex];
-  
-  if(now - stepStart >= dur){
-    playIndex++;
-    if(playIndex >= patLen){
-      stopPattern();
-      return;
-    }
-    stepStart = now;
+    stepStart = millis();
     setState(patMasks[playIndex]);
-  }
+}
+
+void stopPattern()
+{
+    playing = false;
+    patLen = 0;
+    playIndex = 0;
+    allOff();
+}
+
+void updatePattern()
+{
+    if (!playing || patLen == 0)
+        return;
+
+    unsigned long now = millis();
+    uint16_t dur = patDur[playIndex];
+
+    if (now - stepStart >= dur)
+    {
+        playIndex++;
+        if (playIndex >= patLen)
+        {
+            stopPattern();
+            return;
+        }
+        stepStart = now;
+        setState(patMasks[playIndex]);
+    }
 }
 
 /* ---------- WebSocket handling ---------- */
-void wsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length){
-  if(type == WStype_CONNECTED){
-    ws.sendBIN(num, &state, 1);
-    return;
-  }
-
-  if(type == WStype_DISCONNECTED){
-    if(ws.connectedClients() == 0) stopPattern();
-    return;
-  }
-
-  if(type == WStype_TEXT){
-    if(length >= 1){
-      char c = payload[0];
-      if(c >= '0' && c <= '7') {
-        motorTap(c - '0');
-      } else if(c == 'S') {
-        stopPattern();
-      } else if (c == 'T' && length > 1) {
-        String tStr = (char*)(payload + 1);
-        int newT = tStr.toInt();
-        if(newT > 0) tapDuration = newT;
-      }
+void wsEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+{
+    if (type == WStype_CONNECTED)
+    {
+        ws.sendBIN(num, &state, 1);
+        return;
     }
-    return;
-  }
 
-  if(type == WStype_BIN){
-    if(length >= 2 && payload[0] == 'P'){
-      uint8_t steps = payload[1];
-      if(steps > MAX_STEPS) steps = MAX_STEPS;
-      
-      size_t expected = 2 + size_t(steps) * 3;
-      if(length < expected) return; 
-      
-      for(uint8_t i=0; i<steps; i++){
-        patMasks[i] = payload[2 + i*3];
-        patDur[i] = (payload[2 + i*3 + 1] << 8) | payload[2 + i*3 + 2];
-      }
-      startPattern(steps);
+    if (type == WStype_DISCONNECTED)
+    {
+        if (ws.connectedClients() == 0)
+            stopPattern();
+        return;
     }
-    return;
-  }
+
+    if (type == WStype_TEXT)
+    {
+        if (length >= 1)
+        {
+            char c = payload[0];
+            if (c >= '0' && c <= '7')
+            {
+                motorTap(c - '0');
+            }
+            else if (c == 'S')
+            {
+                stopPattern();
+            }
+            else if (c == 'T' && length > 1)
+            {
+                String tStr = (char *)(payload + 1);
+                int newT = tStr.toInt();
+                if (newT > 0)
+                    tapDuration = newT;
+            }
+        }
+        return;
+    }
+
+    if (type == WStype_BIN)
+    {
+        if (length >= 2 && payload[0] == 'P')
+        {
+            uint8_t steps = payload[1];
+            if (steps > MAX_STEPS)
+                steps = MAX_STEPS;
+
+            size_t expected = 2 + size_t(steps) * 3;
+            if (length < expected)
+                return;
+
+            for (uint8_t i = 0; i < steps; i++)
+            {
+                patMasks[i] = payload[2 + i * 3];
+                patDur[i] = (payload[2 + i * 3 + 1] << 8) | payload[2 + i * 3 + 2];
+            }
+            startPattern(steps);
+        }
+        return;
+    }
 }
 
 /* ---------- Web Page (PROGMEM) ---------- */
@@ -503,65 +534,77 @@ body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:#eee;-
 )rawliteral";
 
 /* ---------- WiFi ---------- */
-void connectWiFi(){
-  if(WiFi.status() == WL_CONNECTED) return;
-  if(millis() - wifiRetry < 5000) return;
-  
-  wifiRetry = millis();
-  WiFi.disconnect(); 
-  WiFi.begin(ssid, password);
+void connectWiFi()
+{
+    if (WiFi.status() == WL_CONNECTED)
+        return;
+    if (millis() - wifiRetry < 5000)
+        return;
+
+    wifiRetry = millis();
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
 }
 
 /* ---------- setup / loop ---------- */
-void setup(){
-  Serial.begin(115200);
-  
-  pinMode(DATA_PIN, OUTPUT);
-  pinMode(CLOCK_PIN, OUTPUT);
-  pinMode(LATCH_PIN, OUTPUT);
+void setup()
+{
+    Serial.begin(115200);
 
-  allOff();
+    pinMode(DATA_PIN, OUTPUT);
+    pinMode(CLOCK_PIN, OUTPUT);
+    pinMode(LATCH_PIN, OUTPUT);
 
-  WiFi.mode(WIFI_STA);
-  connectWiFi();
+    allOff();
 
-  server.on("/", [](){ server.send_P(200, "text/html", page); });
-  server.begin();
+    WiFi.mode(WIFI_STA);
+    connectWiFi();
 
-  ws.begin();
-  ws.onEvent(wsEvent);
+    server.on("/", [](){ server.send_P(200, "text/html", page); });
+    server.begin();
+
+    ws.begin();
+    ws.onEvent(wsEvent);
 }
 
-void loop(){
-  bool now = (WiFi.status() == WL_CONNECTED);
-  if(!now){
-    allOff();
-    connectWiFi();
-    wifiConnected = false;
-  } else if(!wifiConnected){
-    wifiConnected = true;
-    Serial.print("Webserver IP: ");
-    Serial.println(WiFi.localIP());
-  }
-
-  if(!playing) {
-    unsigned long tnow = millis();
-    bool changed = false;
-    for(int i=0; i<8; i++){
-      if((state & (1<<i)) && motorTimer[i] != 0 && (tnow - motorTimer[i] >= tapDuration)){
-        state &= ~(1<<i);
-        motorTimer[i] = 0;
-        changed = true;
-      }
+void loop()
+{
+    bool now = (WiFi.status() == WL_CONNECTED);
+    if (!now)
+    {
+        allOff();
+        connectWiFi();
+        wifiConnected = false;
     }
-    if(changed){
-      shift(state);
-      ws.broadcastBIN(&state, 1);
+    else if (!wifiConnected)
+    {
+        wifiConnected = true;
+        Serial.print("Webserver IP: ");
+        Serial.println(WiFi.localIP());
     }
-  }
 
-  updatePattern();
-  
-  server.handleClient();
-  ws.loop();
+    if (!playing)
+    {
+        unsigned long tnow = millis();
+        bool changed = false;
+        for (int i = 0; i < 8; i++)
+        {
+            if ((state & (1 << i)) && motorTimer[i] != 0 && (tnow - motorTimer[i] >= tapDuration))
+            {
+                state &= ~(1 << i);
+                motorTimer[i] = 0;
+                changed = true;
+            }
+        }
+        if (changed)
+        {
+            shift(state);
+            ws.broadcastBIN(&state, 1);
+        }
+    }
+
+    updatePattern();
+
+    server.handleClient();
+    ws.loop();
 }

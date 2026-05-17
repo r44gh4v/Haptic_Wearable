@@ -22,7 +22,7 @@ So I built a band of 8 tiny vibration motors wrapped around the body and driven 
 
 ---
 
-## The hardware tour
+## The hardware
 
 ### Circuit Diagram
 MCU on the left, the haptics driver in the middle, power on the right:
@@ -56,7 +56,7 @@ void shift(uint8_t d){
 }
 ```
 
-### The muscle - ULN2803A Darlington array
+### The driver - ULN2803A Darlington array
 
 An ESP32 pin can't drive a vibration motor - as the current draw, and the motor's inductive kickback would kill the GPIO. The **ULN2803A** sits between them: 8 Darlington transistors that each sink a motor to ground on command, with built-in flyback clamping tied to the battery rail. The 74HC595 says "on," the ULN2803 does the heavy lifting. The motors run straight off the LiPo for maximum power; the logic doesn't care.
 
@@ -92,7 +92,7 @@ Three ideas keep the code small and the wearable responsive:
 
 **3. Fail safe, always.** Lose Wi-Fi, lose the last client, or stop a pattern, and the firmware calls `allOff()`. A wearable that gets *stuck buzzing* is worse than one that goes quiet, so quiet is the default.
 
-### The wire protocol
+### The protocol
 
 The browser and device speak a tiny binary/text protocol over the WebSocket:
 
