@@ -2,13 +2,27 @@
 
 > A wearable haptic device that talks to you in *touch*, not sound or visuals - quietly, in the background, without ever asking for your attention.
 
+*Envisioned and funded by [Amit Upadhyay](https://www.linkedin.com/in/amitu/) · designed and built by me, Raaghav · at the Scaler hardware lab.*
+
+---
+
+## The story
+
+This one didn't start with me. It started with a conversation.
+
+Amit Upadhyay came to me with an idea and a job. We're all drowning in screens - every alert is a sound in a quiet room, a light in a dark one, a wrist buzz everyone at the table can hear. He wanted the opposite of that: a wearable patch you'd barely notice, that could pass you a message through nothing but a pattern of vibration. No screen to glance at, no sound to break a meeting, no tell that anyone else could see. Just *you*, quietly knowing - in a meeting, in deep work, mid-conversation, anywhere.
+
+He backed it the whole way: funding all the components, I worked through prototyping. The build itself happened at **Scaler's hardware lab** - the bench, the soldering iron, the scope, and a room full of people who'd drift over to see what was buzzing on my desk and leave me a better idea than I started with. My job was to take Mr. Amit's vision and make it real enough to actually wear.
+
+And his vision didn't stop at notifications. The longer arc is a programmable button matrix - press a sequence, send a predefined signal to *someone else* wearing a patch. From there it opens up into an ecosystem of devices that talk to each other: silent, ambient, person-to-person communication that never once asks for a screen. This prototype is step one of that.
+
 ---
 
 ## The idea
 
-We have five senses and a phone that constantly fights all of them. Every notification is a sound, a flash, a screen demanding eye contact. I wanted the opposite: a channel that lives **underneath** awareness - something I could feel without stopping, the way you feel which direction is "down" without thinking about it.
+We have five senses and a phone that constantly fights all of them. Every notification is a sound, a flash, a screen demanding eye contact. The goal was the opposite: a channel that lives **underneath** awareness - something you could feel without stopping, the way you feel which direction is "down" without thinking about it.
 
-So I built a band of 8 tiny vibration motors wrapped around the body and driven by patterns I can compose myself. North is a slow pulse on your left. A message is a soft double-tap at the wrist. A countdown is a wave sweeping around your arm. After a few days your brain stops *decoding* it and just **knows** - that's the sixth sense I was after.
+So I built a band of 8 tiny vibration motors wrapped around the body and driven by patterns I can compose myself. North is a slow pulse on your left. A message is a soft double-tap at the wrist. A countdown is a wave sweeping around your arm. After a few days your brain stops *decoding* it and just **knows** - that's the sixth sense we were after.
 
 ---
 
@@ -147,15 +161,22 @@ Patterns are easy to feel but hard to photograph - so here it is with LEDs attac
 
 The best technical decision was refusing to block. Once motors, network, and UI all ran off `millis()` instead of `delay()`, the device stopped feeling like a microcontroller and started feeling like a *responsive thing you wear*.
 
-Where it goes from here:
+Where it goes from here - the path Amit and I sketched out:
 
 - **Onboard pattern memory** so it works untethered from any browser.
+- **A programmable button matrix** - press a sequence and send a predefined signal to another person wearing a patch.
+- **A patch-to-patch ecosystem** - interconnected devices for silent, ambient, person-to-person communication.
 - **Notification bridges** - let messages, navigation, and timers each get their own felt signature.
 - **Closed-loop training** to find the patterns the body learns *fastest*.
-- **Compact form factor** - a smaller board with a custom PCB, to make it less obtrusive.
-- **Smart Connectivity** 
+- **Compact form factor** - a smaller custom PCB, to make it less obtrusive.
+- **A companion app with smart connectivity** - a dedicated mobile app (iOS/Android) that replaces the browser interface, with BLE for direct phone pairing, Wi-Fi for range and multi-device sync, and hooks into smart home hubs, sensors, and calendar services - so the patch silently surfaces what matters, from anywhere, without a screen in sight.
 
-Right now it's a band of 8 motors and a web page. But every time I wear it for a day and catch myself just knowing something I never looked at, it stops feeling like a project and starts feeling like a sense.
+---
+
+## Acknowledgements
+
+- **[Amit Upadhyay](https://www.linkedin.com/in/amitu/)** - for the vision, the funding, and the trust to hand it over and let me build it.
+- **Scaler's hardware lab** - for the bench, the tools, and the makers around it who validated it and made the build better than it would have been alone.
 
 ---
 
